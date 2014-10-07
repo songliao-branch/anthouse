@@ -1,0 +1,39 @@
+<!DOCTYPE HTML>
+<html>
+<title>Sign Up</title>
+ <style type="text/css">
+
+   div#error{
+    display:inline;
+    color: red
+   }
+
+   .h3{
+
+    width:100px;
+   }
+
+label + label {
+    margin-top: 20px;
+}
+
+
+  </style>
+<form method="post">
+
+<h2><b>Login</b></h2>
+<br>
+<form method="post">
+<label>
+<p>Username</p><input type="text" name="username" value="{{username}}">
+</label>
+<br>
+<label>
+<p>Password</p><input type="password" name="password" value="">
+</label>
+<br>
+<div id ="error">{{error}}</div>
+<br>
+<input type="submit" name="submit" >
+</form>
+</html>

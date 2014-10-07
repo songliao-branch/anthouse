@@ -1,0 +1,81 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+		<title>Blooogs</title>
+	</head>
+<style type="text/css">
+        body {
+            font-family: sans-serif;
+            width:800px;
+            margin: 0 auto;
+            padding: 10px;
+        }
+        .error {
+            color: red;
+        }
+
+        .title {
+            font-size: 40px;
+            text-align: center;
+        }
+        .blog{
+
+            margin:30px;
+        }
+        .blog-subject {
+            font-weight: bold;
+            font-size: 20px;
+        }
+        .blog-time{
+
+            text-align: right;
+        }
+
+        .blog-content {
+            margin: 10px;
+            font-size: 17px;
+        }
+        label {
+            display: block;
+            font-size: 20px;
+        }
+        input[type=submit] {
+            font-size: 24px;
+        }
+        hr {
+            font-weight: 10px;
+            margin: 20px auto;
+        }
+        textarea {
+            width: 600px;
+            height: 500px;
+            font-size: 15px;
+            font-family: monospace;
+        }
+        a {
+            text-decoration: none;
+            font-style: italic;
+            font-family: sans-serif;
+        }
+       
+</style>
+    <h4><a href="login">login</a>&nbsp;|
+        <a href="signup">Sign Up</a></h4>
+    <body>
+        <div class ="title">MY BLOOGGS</div>
+        <a href="/blog/newpost"><h2>Make a new post</h2></a>
+        {% for blog in blogs %}
+        <div class="blog">
+            <div class ="blog-subject">{{blog.subject}}</div>
+            <div class ="blog-time">{{blog.created.strftime("%b %d,%y")}}</div>
+            <pre class ="blog-content">{{blog.content}}</pre>
+        
+        </div>
+        <hr>
+        {% endfor %}
+        <hr>
+        <hr>
+
+    </body>
+
+</html>
