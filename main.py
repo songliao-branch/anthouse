@@ -13,7 +13,9 @@ import hmac
 import random
 import string
 import urllib2
+import json
 from xml.dom import minidom
+import logging
 
 template_dir = os.path.join(os.path.dirname(__file__),'templates')
 jinja_env = jinja2.Environment(loader = jinja2.FileSystemLoader(template_dir),
@@ -55,6 +57,12 @@ class Handler(webapp2.RequestHandler):
         hasheduser = make_secure_val(str(user.key().id()))
         self.response.headers.add_header('Set-Cookie','user_id=%s;Path=/'%hasheduser)
         self.redirect("/welcome")
+
+    def render_json(self,d):
+        jtxt=json.dumps(d)
+        self.response.headers['Content-Type'] = 'application/json; charset=UTF-8'
+        
+        self.write(jtxt)
 
 
 class MainPage(Handler):
@@ -117,13 +125,31 @@ class Art(db.Model):#a table/entity defined in google datastore
     created = db.DateTimeProperty(auto_now_add = True)
     coords = db.GeoPtProperty()
 
+CACHE = {}
+
+def top_arts(update = False):
+    key = 'top'
+    #if update is false
+    if not update and key in CACHE:#cache hit, doesn't need to run query
+
+        arts = CACHE[key]
+
+    else:#cache miss
+        logging.error("DB query")
+        arts = db.GqlQuery("SELECT * FROM Art ORDER BY created DESC")
+        arts = list(arts)
+        CACHE[key]=arts
+
+    return arts
+
+
 class AsciichanHandler(Handler):
     def render_chan(self,title="",art="",error=""):
         #self.render("Asciichan.html",title=title,art=art,error=error)
         arts = db.GqlQuery("SELECT * FROM Art ORDER BY created DESC")
+        arts = list(arts)
 
-        #prevent the running of multiple queries
-        arts =list(arts)
+        #arts = top_arts()
 
         image_url=None
 
@@ -147,10 +173,14 @@ class AsciichanHandler(Handler):
             if coords:
                 a.coords=coords
 
-
-
             a.put()#store in the database
-            time.sleep(1)#consistency issue, the put function takes time and we are spontaenously rendering the new page
+            #CACHE.clear()
+            #it's better to overwrite with new ones instead of clearing cache
+            time.sleep(.01)
+
+            #top_arts(True)
+
+            #consistency issue, the put function takes time and we are spontaenously rendering the new page
             #so we have to let the sytem sleep one second
 
 
@@ -170,9 +200,19 @@ class Blog(db.Model):
     content = db.TextProperty(required =True)
     created = db.DateTimeProperty(auto_now_add = True)
 
+
     def render(self):
         #self._render_text = self.content.replace('\n', '<br>')
         return render_str("blog.html",blogs=self)
+
+    def as_dict(self):
+        time_format='%c'
+        dic = {
+        'subject': self.subject,
+        'content':self.content,
+        'created':self.created.strftime(time_format)
+        }
+        return dic
 
 def blog_key(name='default'):
     return db.Key.from_path('blogs',name)
@@ -183,7 +223,17 @@ class BlogHandler(Handler):
         self.render("blog.html",blogs=blogs)
 
     def get(self):
-        self.render_blog()
+        #self.render_blog()
+
+        blogs = db.GqlQuery("SELECT * FROM Blog ORDER BY created DESC limit 15")
+
+        if self.request.url.endswith('.json'):
+            self.format = 'json'
+            return self.render_json([blog.as_dict() for blog in blogs])
+
+        else:
+            self.format = 'html'
+            self.render("blog.html",blogs=blogs)
 
 class NewLinkHandler(Handler):
     def get(self,blog_id):
@@ -207,6 +257,7 @@ class NewPostHandler(Handler):
             newblog=Blog(subject=subject,content=content)
             newblog_key = newblog.put()
             self.redirect('/blog/%d' % newblog_key.id())
+            #now generate json data for the new blog
             
         else:
             error = "Please don't leave your memories blank"
@@ -405,14 +456,41 @@ class LogoutHandler(Handler):
     def post(self):
         pass
 
+# class BlogJsonHandler(Handler):
+#     def get(self):
+#         #first should get all the blogs, without run the query
+#         self.response.headers['Content-Type']='application/json; charset=UTF-8'
+#         blogs = db.GqlQuery("SELECT * FROM Blog ORDER BY created DESC limit 15")
+#         self.write('[')
+#         for blog in blogs:
+#             self.write(json.dumps([{'content':'%s'},{'created':'%s'},{'last-modified':'%s'},{'subject':'%s'}])%(blog.content,blog.created,blog.created,blog.subject))
+       
+#         self.write(']')
+
+# class NewLinkJsonHandler(Handler):
+#     def get(self,blog_id):
+#         #first should get all the blogs, without run the query
+#         self.response.headers['Content-Type']='application/json; charset=UTF-8'
+#         blog = Blog.get_by_id(int(blog_id))
+
+#         self.write('[')
+        
+#         self.write(json.dumps([{'content':'%s'},{'created':'%s'},{'last-modified':'%s'},{'subject':'%s'}])%(blog.content,blog.created,blog.created,blog.subject))
+       
+#         self.write(']')      
+
+
+
 app = webapp2.WSGIApplication([('/', MainPage),
     ('/fizzbuzz',FizzBuzzHandler),
     ('/asciichan',AsciichanHandler),
-    ('/blog/?',BlogHandler),
+    ('/blog/?(?:.json)?',BlogHandler),
     ('/blog/newpost',NewPostHandler),
     ('/blog/(\d+)',NewLinkHandler),
     ('/signup/?',SignUpHandler),
     ('/welcome/?',WelcomeHandler),
     ('/login/?',LoginHandler),
-    ('/logout/?',LogoutHandler)
+    ('/logout/?',LogoutHandler),
+    #('/blog(?:.json)?',BlogJsonHandler),
+    #('/blog/(\d+)(?:.json)?',NewLinkJsonHandler)
     ], debug=True)
